@@ -19,7 +19,7 @@ class Spell(pg.sprite.Sprite):
         self.rect = pg.Rect((position[0], position[1]), self.image.get_size())
         self._attr = {"name": name, "direction": direction-90, "reference": 270, "init_position": position.copy(),
                       "position": position, "distance_traveled": 0, "speed": 500, "damage": 30, "tick": tick,
-                      "cooldown": 0.5, "range": 500, "alive": True}
+                      "cooldown": 0.5, "range": 500, "alive": True, "border": False}
         pg.sprite.Sprite.__init__(self)
 
     def get_attr(self, variable):
@@ -37,13 +37,14 @@ class Spell(pg.sprite.Sprite):
         self._attr["distance_traveled"] = np.sqrt((self._attr["position"][0] - self._attr["init_position"][0])**2 +
                                                   (self._attr["position"][1] - self._attr["init_position"][1]) ** 2)
         # get distance travelled by the sprite so we can remove when it's superior to the range of the spell
-    def up2date(self):
+    def update(self):
         """First we move the spell then the rectangle"""
 
         self._rotate()
         self._move()
         self.rect = pg.Rect((self._attr["position"][0], self._attr["position"][1]), self.image.get_size())
         self._outrange()
+        self._outborder()
 
     def _rotate(self):
         """input newdirection in degree
@@ -62,6 +63,13 @@ class Spell(pg.sprite.Sprite):
         self._attr["position"][0] += x
         self._attr["position"][1] += y
 
+    def _outborder(self):
+
+        if self._attr["border"]:
+
+            self._attr["alive"] = False
+
+
 class Player(pg.sprite.Sprite):
 
 
@@ -72,16 +80,23 @@ class Player(pg.sprite.Sprite):
         self.original.set_colorkey((255, 255, 255)) # Set image transparence
         self.rect = self.image.get_rect() # called when updating sprite
 
-        self._attr = {"reference": 270, "position": [0, 0], "speed": 150, "hp": 100, "mana": 100,"alive": True,
-                       "mouse": [0, 0], "direction": 0, "tick": 0, "UP": K_w, "DOWN": K_s, "LEFT": K_a, "RIGHT": K_d, "R1": K_1}
+        self._attr = {"reference": 270, "position": [25, 25],"old_position":[10, 10], "speed": 150, "hp": 100, "mana": 100,
+                      "alive": True, "border": False, "mouse": [0, 0], "direction": 0, "tick": 0,
+                      "UP": K_w, "DOWN": K_s, "LEFT": K_a, "RIGHT": K_d, "R1": K_1}
         pg.sprite.Sprite.__init__(self)
 
     def move(self, vx=0, vy=0):
         """input time between last call of clock.tick()
            compute the distance in pixel/second"""
 
-        self._attr["position"][0] += (vx*self._attr["tick"])
-        self._attr["position"][1] += (vy*self._attr["tick"])
+        if not self._attr["border"]:
+
+            self._attr["old_position"] = self._attr["position"].copy()
+            self._attr["position"][0] += (vx*self._attr["tick"])
+            self._attr["position"][1] += (vy*self._attr["tick"])
+
+        else:
+            self._attr["position"] = self._attr["old_position"].copy()
 
     def get_attr(self, variable):
         """input string variable,
@@ -103,9 +118,9 @@ class Player(pg.sprite.Sprite):
 
         self._attr[variable] = value
 
-    def up2date(self):
+    def update(self):
         """Update new rectangle"""
-        self._check_borders()
+
         self._rotate()
         center_image = self.image.get_rect().center # center of our rotated image, so we can position our rectangle
         self.rect = pg.Rect((self._attr["position"][0] - center_image[0],
@@ -115,25 +130,5 @@ class Player(pg.sprite.Sprite):
         #
         self._attr["position"][0] += x
         self._attr["position"][1] += y
-
-    def _check_borders(self):
-
-        global background_size, size_window
-
-        image = self.image.get_size()
-        center_image = self.image.get_rect().center
-        if (background_size[0] - size_window[0] + self._attr["position"][0] + image[0]) >= background_size[0]:
-
-            self._attr["position"][0] =  size_window[0] - image[0]
-
-        elif (self._attr["position"][0]) <= 0:
-
-            self._attr["position"][0] = 0
-
-        elif (background_size[1] - size_window[1] + self._attr["position"][1] + image[1]) >= background_size[1]:
-
-            self._attr["position"][1] = size_window[1] - image[1]
-
-        elif (self._attr["position"][1]) <= 0:
-
-            self._attr["position"][1] = 0
+        self._attr["old_position"][0] += x
+        self._attr["old_position"][1] += y
