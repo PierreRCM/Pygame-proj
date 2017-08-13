@@ -1,44 +1,46 @@
 import pygame as pg
+from pygame.locals import *
 import os
-import object_interaction_manager as oim
+import game_objects as go
 pg.init()
 
-# class Screen:
-#
-#     def __init__(self):
 
 class Map:
 
-    def __init__(self, groupe_list, groupe_actif):
+    def __init__(self, groupe_dict):
 
-        self.image = pg.image.load(os.getcwd() + "\\picture\\map.jpg").convert()
+        self.image = pg.image.load(os.getcwd() + "\\picture\\map.png").convert()
         self.rect = self.image.get_rect()
-        self.groupe_list = groupe_list
-        self.groupe_actif = groupe_actif
+        self.groupe_dict = groupe_dict # contain group actif (who need to be update) and static sprites group
+
 
     def deduce_camera_shift(self, camera):
 
         new_pos_camera = camera.get_attr("position")
         old_pos_camera = camera.get_attr("old_position")
 
-        for sprite in self.groupe_actif.sprites():
+        for groupe in self.groupe_dict.values():
 
-            x = new_pos_camera[0] - old_pos_camera[0]
-            y = new_pos_camera[1] - old_pos_camera[1]
+            for sprite in groupe.sprites():
 
-            sprite.shift(x, y)
+                x = new_pos_camera[0] - old_pos_camera[0]
+                y = new_pos_camera[1] - old_pos_camera[1]
+
+                sprite.shift(x, y)
 
     def update(self):
 
-        for groupe in self.groupe_list:
+        self._check_alive()
+
+        for groupe in self.groupe_dict.values():
 
             groupe.update()
 
-    def check_borders(self, screen_position, screen_size):
+    def check_borders(self, screen_position):
 
         size_image = self.image.get_size()
 
-        for sprite in self.groupe_actif.sprites():
+        for sprite in self.groupe_dict["a"].sprites():
 
             # image = sprite.image.get_size() #  HAVE TO USED TO SHIFT FOR LARGE SPRITE, FOR ACCURATE BORDERS
 
@@ -66,9 +68,25 @@ class Map:
 
         screen.blit(self.image, camera_rect)
 
-        for groupe in self.groupe_list:
+        for groupe in self.groupe_dict.values():
 
-            groupe.draw(screen)
+            for sprite in groupe.sprites():
+
+                screen.blit(go.image_data_original[sprite.image], sprite.rect)
+
+    def add_sprites(self, player):
+
+        if player.fire and player.shot_ready:
+
+            self.groupe_dict["a"].add(player.create_bullet())
+
+    def _check_alive(self):
+
+        for sprite in self.groupe_dict["a"].sprites():
+
+            if not sprite.get_attr("alive"):
+
+                self.groupe_dict["a"].remove(sprite)
 
 
 class Camera:
@@ -78,7 +96,7 @@ class Camera:
         self.map_size = map_size
         self.screen_size = screen_size
         self.rect = pg.Rect((0, 0) , screen_size)
-        self._attr = {"mouse": [0, 0], "speed": 400, "tick": 0, "position": [0, 0], "direction": 0,
+        self._attr = {"mouse": [0, 0], "speed": 100, "tick": 0, "position": [0, 0], "direction": 0,
                       "old_position": [0, 0]}
 
 
@@ -102,7 +120,6 @@ class Camera:
         elif self._attr["mouse"][1] >= self.rect.size[1] - 1:
 
             self._move(vy=-self._attr["speed"])
-
 
     def _move(self, vx=0, vy=0):
 
@@ -142,7 +159,31 @@ class Camera:
             self._attr["position"][1] = 0
 
 
+class Screen:
 
+    def __init__(self):
 
+        self.resolution = (500, 500)
+        self.screen = pg.display.set_mode(self.resolution)
+        self.fullscreen = False
+        self.game_name = pg.display.set_caption("ACTUALLY NONE")
+        self.shortcut = {"FULLSCREEN": K_F1, "QUIT": K_ESCAPE} # we may create a menu when pressing a key
+                                                               # so we can access to option/exit
+                                                               # and handle it with mouse click
+        self.window = True
 
+    def check_input(self, inputs):
 
+        if inputs[self.shortcut["FULLSCREEN"]]:
+
+            if not self.fullscreen:
+
+                pg.display.set_mode((self.resolution), pg.FULLSCREEN)
+
+            else:
+
+                pg.display.set_mode(self.resolution)
+
+        if inputs[self.shortcut["QUIT"]]:
+
+            self.window = False
