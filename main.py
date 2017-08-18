@@ -19,7 +19,7 @@ class Main:
         self.client = client.Client()
         self.screen = wm.Screen()
         self.player = go.Player()
-        self.map = wm.Map({"a": pg.sprite.Group(self.player), "p": pg.sprite.Group()})
+        self.map = wm.Map({"Players": pg.sprite.Group(self.player), "Bullets": pg.sprite.Group()})
         self.camera = wm.Camera(self.screen.resolution, self.map.image.get_size())
         self.input = pg.key.get_pressed()
         self.gameOn = True
@@ -38,17 +38,16 @@ class Main:
 
     def game_loop(self):
 
-        self.client.connect()
-
         while self.gameOn:
 
             self.dt = self.clock.tick(50) / 1000
-
+            data_loads = self.client.rcv_data_server()
+            self.map.handle_new_data(data_loads)
             self._set_mouse_motion()
 
             self.player.set_attr("tick", self.dt)
             self.player.keys = pg.key.get_pressed()
-            self.player.check_inputs()
+            self.player.check_inputs()  # todo: Try to find a way to avoid moving and rotation the player in this method
 
             self.input = pg.key.get_pressed()
 
@@ -56,19 +55,38 @@ class Main:
             self.camera.check_mouse()
             self.camera.update()
 
-            self.map.add_sprites(self.player)
+            dict_new_sprites = self.map.add_sprites(self.player)  # Need player instance to check whether the player is shooting
+            data = self._create_data(dict_new_sprites)
+
+            # Updating / displaying on screen
             self.map.deduce_camera_shift(self.camera)
             self.map.check_borders(self.camera.get_attr("position"))
+            self.map.collision()
             self.map.update()
             self.map.render(self.screen.screen, self.camera.rect)
 
             self.screen.check_input(self.input)
 
-            self.gameOn = self.screen.window
-            self.client.send_data(self.map.groupe_dict)
+            self.client.send(data)
 
             pg.display.update()
             pg.event.pump()
+            self.gameOn = self.screen.window
+
+    def _create_data(self, dict_new_sprites):
+
+        dict = {}
+
+        if self.player.fire:
+
+            dict["Bullet"] = dict_new_sprites["Bullet"]
+
+        if self.player.move:
+
+            dict["Player"] = dict_new_sprites["Player"]
+
+        return dict
+
 
 main = Main()
 main.game_loop()
