@@ -102,4 +102,3 @@ while not server_response:
         server_response = True
 
 main.game_loop()
-
