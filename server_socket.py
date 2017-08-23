@@ -4,59 +4,10 @@ import pickle
 import os
 import sys
 
-# class Server:
-#
-#     def __init__(self):
-#
-#         self.ip = socket.gethostname()
-#         self.port = 12150
-#         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#         self.socket.bind(("", self.port))
-#         self.connexion = []
-#         self.info_co = []
-#         self.data_rcv = None
-#         self.myUnpickle = pickle.Unpickler
-#
-#     def listen(self):
-#
-#
-#         print("Socket listening...")
-#         self.socket.listen(5)
-#         print("Waiting for connexion...")
-#         connexion, info_co = self.socket.accept()
-#         self.connexion.append(connexion)
-#         self.info_co.append(info_co)
-#         print(str(info_co)+ " just connect !")
-#
-#     def rcv_data(self):
-#
-#         self.data_rcv = self.connexion[0].recv(4096)
-#         try:
-#             self.data_rcv = pickle.loads(self.data_rcv)
-#         except:
-#             pass
-#         print(self.data_rcv)
-#         self._send_data(self.data_rcv)
-#
-#     def _send_data(self, data):
-#
-#         data = pickle.dumps(data)
-#
-#         self.connexion[1].send(data)
-#
-#
-#
-# server = Server()
-# server.listen()
-# server.listen()
-#
-# while True:
-#
-#     server.rcv_data()
-#
 
 print("Looking for your own IP...")
 print("Intranet Protocol: {} \n".format(socket.gethostbyname(socket.gethostname())))
+
 
 class Server:
     """Server UDP socket"""
@@ -69,42 +20,41 @@ class Server:
         self.clients_number = len(self.clients)
         self.clients_last_call = {}
         self.socket.setblocking(0)
+        self.new_bullet = None
+        self.players = {}
+        self.bullets = []
+        self.last_client = str()
+        self.waiting_for_connexion = True
 
     def rcv_data(self):
-
+        """Receive incoming data"""
         try:
 
-            data, info_client = self.socket.recvfrom(4096)
+            data, info_client = self.socket.recvfrom(2048)
+            self.last_client = info_client
 
-            if not (info_client[0] in self.clients.keys()):
+            self._handle_data(data)
 
-                print("{}: First connexion".format(info_client[0]))
-                print("Saving client connexion information... \n")
-                self.clients_number += 1
-                self.clients[info_client[0]] = self.clients_number
-                self.clients_last_call[info_client[0]] = time.time()
-                print("Client : " + info_client[0] + " successfully added to client list \n")
-
-
-            self._send_data(data, info_client)
-
-        except BlockingIOError:
+        except BlockingIOError or OSError:  # Todo: find a way to remove those try ( no data and overload buffer)
             pass
 
+    def send_data(self):
+        """Transfer incoming data to all client except to the owner of the sprites"""
 
-    def _send_data(self, data, info_client):
-        """Transfer incoming data to all client except the on who send it"""
+        for client_info, player_name in self.clients.items():
 
-        clients_list = self.clients.copy()
-        clients_list_to_send = clients_list.pop(info_client[0])
+            data_to_send = [self.players]
+            data_to_send[0].pop(player_name)
 
-        for client_ip in clients_list_to_send.keys():
 
-            self.socket.sendto(data, (client_ip, self.port))
+
+            self.socket.sendto(data_to_send, client_info)
+
+        self.new_bullet = None
 
     def check_list(self):
         """ After a time the information of the client are removed, think it's useless as we get it back when
-            he ll be back """
+        he ll be back """
 
         clients_last_call_dict = self.clients_last_call.copy()
 
@@ -118,13 +68,76 @@ class Server:
                 self.clients_last_call.pop(client)
                 print("Client {} data removed\n".format(client))
 
+    def _handle_data(self, data):
+        """input data sent by the client, filter bullet and player, add bullet in a list, call check update
+            to watch out if the player move"""
+        data_loads = pickle.loads(data)
+
+        for type_sprite, sprite in data_loads.items():
+
+            if isinstance(type_sprite, go.Bullet):
+
+                self.new_bullet = sprite
+                self.bullets.append(sprite)
+
+            elif isinstance(type_sprite, go.Player):
+
+                self._check_update(sprite)
+
+    def _check_update(self, player):
+        """input player instance, if player rect on the server in not the same that on the client, update server"""
+
+        player_rect = self.players[player.name].rect
+
+        if player_rect != player.rect:
+
+            self.players[player.name] = player
+
+    def save_connexion(self):
+
+        try:
+
+            data, info_client = self.socket.recvfrom(2048)
+            self.last_client = info_client
+
+            if not (info_client in self.clients.keys()):
+
+                print("{}: First connexion".format(info_client))
+                print("Saving client information... \n")
+                player = pickle.loads(data)
+                self.clients_number += 1
+                self.clients[info_client] = player.name
+                self.clients_last_call[info_client] = time.time()
+                self.players[player.name] = player
+                print("Client : " + info_client[0] + " successfully added to client list \n")
+
+            if len(self.clients) != 0:
+
+                self.waiting_for_connexion = False
+
+        except BlockingIOError:
+            pass
+
+    def launch_game(self):
+
+        print("LAUNCHING GAME")
+        message = pickle.dumps("launch")
+        for info_client in self.clients.keys():
+
+            self.socket.sendto(message, info_client)
 
 
 server = Server()
+
+while server.waiting_for_connexion:
+
+    server.save_connexion()
+
+server.launch_game()
 
 while 1:
 
     server.rcv_data()
     server.check_list()
-
+    server.send_data()
 

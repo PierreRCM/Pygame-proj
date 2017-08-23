@@ -7,71 +7,80 @@ pg.init()
 
 class Map:
 
-    def __init__(self, groupe_dict):
+    def __init__(self, player):
 
+        self.client_player = player
         self.image = pg.image.load(os.getcwd() + "\\picture\\map.png").convert()
         self.rect = self.image.get_rect()
-        self.groupe_dict = groupe_dict # Actually contain 2 sprite groupe keys Bullets and Players
+        self.players = [player] # will be set depending on the players who connect to the server
+        self.bullets = []
 
     def deduce_camera_shift(self, camera):
         """to avoid the motion effect on sprite of the camera, it deduce the shift of it"""
         new_pos_camera = camera.get_attr("position")
         old_pos_camera = camera.get_attr("old_position")
 
-        for groupe in self.groupe_dict.values():
+        for player in self.players.values():
 
-            for sprite in groupe.sprites():
+            x = new_pos_camera[0] - old_pos_camera[0]
+            y = new_pos_camera[1] - old_pos_camera[1]
+            player.shift(x, y)
 
-                x = new_pos_camera[0] - old_pos_camera[0]
-                y = new_pos_camera[1] - old_pos_camera[1]
+        for bullet in self.bullets:
 
-                sprite.shift(x, y)
+            x = new_pos_camera[0] - old_pos_camera[0]
+            y = new_pos_camera[1] - old_pos_camera[1]
+            bullet.shift(x, y)
 
     def update(self):
         """Call update method for all sprites"""
         self._check_alive()
 
-        for groupe in self.groupe_dict.values():
+        for player in self.players.values():
 
-            groupe.update()
+            player.update()
+
+        for bullet in self.bullets:
+
+            bullet.update()
 
     def check_borders(self, screen_position):
-        """Check whether sprites collide with the borders, if it's True, set border arguments"""
+        """Check whether player collide with the borders, if it's True, set border arguments"""
         size_image = self.image.get_size()
 
-        for groupe in self.groupe_dict.values():
-            for sprite in groupe.sprites():
+            # image = sprite.image.get_size() #  HAVE TO USED TO SHIFT FOR LARGE SPRITE, FOR ACCURATE BORDERS
 
-                # image = sprite.image.get_size() #  HAVE TO USED TO SHIFT FOR LARGE SPRITE, FOR ACCURATE BORDERS
+        if (-screen_position[0] + self.client_player._attr["position"][0]) >= size_image[0]:
 
-                if (-screen_position[0] + sprite._attr["position"][0]) >= size_image[0]:
+            self.client_player.set_attr("border", True)
 
-                    sprite.set_attr("border", True)
+        elif (self.client_player._attr["position"][0] - screen_position[0]) <= 0:
 
-                elif (sprite._attr["position"][0] - screen_position[0]) <= 0:
+            self.client_player.set_attr("border", True)
 
-                    sprite.set_attr("border", True)
+        elif (-screen_position[1] + self.client_player._attr["position"][1]) >= size_image[1]:
 
-                elif (-screen_position[1] + sprite._attr["position"][1]) >= size_image[1]:
+            self.client_player.set_attr("border", True)
 
-                    sprite.set_attr("border", True)
+        elif (self.client_player._attr["position"][1] - screen_position[1]) <= 0:
 
-                elif (sprite._attr["position"][1] - screen_position[1]) <= 0:
+            self.client_player.set_attr("border", True)
 
-                    sprite.set_attr("border", True)
+        else:
 
-                else:
-
-                    sprite.set_attr("border", False)
+            self.client_player.set_attr("border", False)
 
     def render(self, screen, camera_rect):
 
         screen.blit(self.image, camera_rect)
 
-        for groupe in self.groupe_dict.values():
-            for sprite in groupe.sprites():
+        for player in self.players.values():
 
-                screen.blit(go.image_data_original[sprite.image], sprite.rect)
+            screen.blit(go.image_data_original[player.image], player.rect)
+
+        for bullet in self.bullets:
+
+            screen.blit(go.image_data_original[bullet.image], bullet.rect)
 
     def add_sprites(self, player):
         """input player instance check whether the player create a sprite, add it to the map
@@ -82,44 +91,40 @@ class Map:
         if player.fire and player.shot_ready:
 
             a_bullet = player.create_bullet()
-            self.groupe_dict["Bullets"].add(a_bullet)
+            self.bullets.append(a_bullet)
             new_sprites["Bullet"] = a_bullet
-            player.fire = False
 
         return new_sprites
 
     def _check_alive(self):
         """Check whether each sprites is alive remove them if it's not the case"""
 
-        for groupe in self.groupe_dict.values():
-            for sprite in groupe.sprites():
-                if not sprite.get_attr("alive"):
+        for bullet in self.bullets:
+            if not bullet.get_attr("alive"):
 
-                    groupe.remove(sprite)
+                self.bullets.remove(bullet)
 
-    def handle_new_data(self, data_from_server):
+    def handle_new_data(self, list_sprites):
         """This method add data coming from other clients and add it to our map"""
 
-        for data_dict in data_from_server:  # Most of the time data_from_server contain only 1 list
-            for sprite in data_dict.values():        # just to handle latency between packets
-                if isinstance(sprite, go.Player):
+        for player_name, players_sprite in list_sprites[0].items():
 
-                    self.groupe_dict["Players"].add(sprite)  # data send are only active sprites
+            self.players[player_name] = player_sprite
 
-                elif isinstance(sprite, go.Bullet):
+        if list_sprites[1] != None:
 
-                    self.groupe_dict["Bullets"].add(sprite)
+            self.bullets.append(list_sprites[1])
 
-    def collision(self):
-        """Test whether each players collide with bullets, deduce hp and kill sprite in case"""
-
-        for player in self.groupe_dict["Players"]:
-            for bullet in self.groupe_dict["Bullets"]:
-                if (player.name is not bullet.owner) and (player.rect.colliderect(bullet)):
-
-                    new_hp = player.get_attr("hp") - bullet.get_attr("damage")
-                    player.set_attr("hp", new_hp)
-                    bullet.set_attr("alive", False)
+    # def collision(self):
+    #     """Test whether each players collide with bullets, deduce hp and kill sprite in case"""
+    #
+    #     for player in self.groupe_dict["Players"]:
+    #         for bullet in self.groupe_dict["Bullets"]:
+    #             if (player.name is not bullet.owner) and (player.rect.colliderect(bullet)):
+    #
+    #                 new_hp = player.get_attr("hp") - bullet.get_attr("damage")
+    #                 player.set_attr("hp", new_hp)
+    #                 bullet.set_attr("alive", False)
 
 
 class Camera:

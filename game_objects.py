@@ -135,7 +135,6 @@ class Player(pg.sprite.Sprite):
                       "alive": True, "border": False, "mouse": [0, 0], "direction": 0, "tick": 0}
         self.shot_ready = True
         self.fire = False
-        self.move = False
 
         self.keys = pg.key.get_pressed()
         pg.sprite.Sprite.__init__(self)
@@ -175,14 +174,8 @@ class Player(pg.sprite.Sprite):
         self._attr["direction"] = np.arctan2(deltax, deltay) * 180 / np.pi + self._attr["reference"]
 
         # difference of angle between the old and new position
-        if old_direction - self._attr["direction"]:
+        image_data[self.image] = pg.transform.rotate(image_data_original[self.image], self._attr["direction"])
 
-            image_data[self.image] = pg.transform.rotate(image_data_original[self.image], self._attr["direction"])
-            self.move = True
-
-        else:
-
-            self.move = False
 
     def set_attr(self, variable, value):
 
@@ -223,7 +216,6 @@ class Player(pg.sprite.Sprite):
 
         new_bullet = Bullet(self.name, self._attr["direction"], self._attr["position"], self.weapon.range,
                             self.weapon.damage, self.weapon.speed, self._attr["tick"])  # get_attr method for weapon
-        self.fire = False
 
         return new_bullet
 
@@ -236,22 +228,18 @@ class Player(pg.sprite.Sprite):
 
         if self.keys[self.shortcut["up"]]:
 
-            self.move = True
             vy = -self._attr["speed"]
 
         elif self.keys[self.shortcut["down"]]:
 
-            self.move = True
             vy = self._attr["speed"]
 
         if self.keys[self.shortcut["left"]]:
 
-            self.move = True
             vx = -self._attr["speed"]
 
         elif self.keys[self.shortcut["right"]]:
 
-            self.move = True
             vx = self._attr["speed"]
 
         if self.keys[self.shortcut["shoot"]]:
@@ -268,3 +256,4 @@ class Player(pg.sprite.Sprite):
 
         image_data_original[self.image] = pg.image.load(os.getcwd() + "\\picture\\player.png").convert()
         image_data[self.image] = pg.image.load(os.getcwd() + "\\picture\\player.png").convert()
+
