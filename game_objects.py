@@ -93,6 +93,7 @@ class Bullet(pg.sprite.Sprite):
         self._attr[key] = value
 
     def _init_image(self):
+
         global image_data_original, image_data
 
         image_data_original[self.image] = pg.image.load(os.getcwd() + "\\picture\\bdf.png").convert()
@@ -167,15 +168,12 @@ class Player(pg.sprite.Sprite):
     def _rotate(self):
         """Rotate the image in calculating the the angle, between mouse position and player position"""
 
-        old_direction = self._attr["direction"]
         deltax = self._attr["mouse"][0] - self._attr["position"][0]
         deltay = self._attr["mouse"][1] - self._attr["position"][1]
         # difference of position between position of sprite and mouse position
         self._attr["direction"] = np.arctan2(deltax, deltay) * 180 / np.pi + self._attr["reference"]
-
         # difference of angle between the old and new position
         image_data[self.image] = pg.transform.rotate(image_data_original[self.image], self._attr["direction"])
-
 
     def set_attr(self, variable, value):
 

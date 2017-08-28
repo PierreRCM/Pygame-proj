@@ -9,11 +9,11 @@ class Map:
 
     def __init__(self, player):
 
-        self.client_player = player
         self.image = pg.image.load(os.getcwd() + "\\picture\\map.png").convert()
         self.rect = self.image.get_rect()
-        self.players = [player] # will be set depending on the players who connect to the server
+        self.players = {player.name: player} # will be set depending on the players who connect to the server
         self.bullets = []
+        self.client_player = player
 
     def deduce_camera_shift(self, camera):
         """to avoid the motion effect on sprite of the camera, it deduce the shift of it"""
@@ -82,20 +82,6 @@ class Map:
 
             screen.blit(go.image_data_original[bullet.image], bullet.rect)
 
-    def add_sprites(self, player):
-        """input player instance check whether the player create a sprite, add it to the map
-            It also return a dictionnary of sprite the new sprite created"""
-
-        new_sprites = {"Bullet": None, "Player": player}  # Can only contain the sprite which can be create in the game
-
-        if player.fire and player.shot_ready:
-
-            a_bullet = player.create_bullet()
-            self.bullets.append(a_bullet)
-            new_sprites["Bullet"] = a_bullet
-
-        return new_sprites
-
     def _check_alive(self):
         """Check whether each sprites is alive remove them if it's not the case"""
 
@@ -106,14 +92,28 @@ class Map:
 
     def handle_new_data(self, list_sprites):
         """This method add data coming from other clients and add it to our map"""
+        try:
+            for player_name, player_sprite in list_sprites[0].items():
 
-        for player_name, players_sprite in list_sprites[0].items():
-
-            self.players[player_name] = player_sprite
-
-        if list_sprites[1] != None:
+                self.players[player_name] = player_sprite
 
             self.bullets.append(list_sprites[1])
+
+        except IndexError:
+            pass
+
+    def create_data(self):
+        """input player instance check whether the player create a sprite,
+            It return a dictionary of sprite with the new one"""
+
+        new_sprites = {"Bullet": None, "Player": self.client_player}  # Can only contain the sprite which can be create in the game
+
+        if self.client_player.fire and self.client_player.shot_ready:
+
+            a_bullet = self.client_player.create_bullet()
+            new_sprites["Bullet"] = a_bullet
+
+        return new_sprites
 
     # def collision(self):
     #     """Test whether each players collide with bullets, deduce hp and kill sprite in case"""

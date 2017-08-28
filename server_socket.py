@@ -3,11 +3,20 @@ import time
 import pickle
 import os
 import sys
+import game_objects as go
 
 
 print("Looking for your own IP...")
 print("Intranet Protocol: {} \n".format(socket.gethostbyname(socket.gethostname())))
-
+# Todo: I think that bullets are most of the time not receive because of the UDP sockets
+# Todo: need to find a way to ensure that the client get the bullets
+# Todo: aswell need to find a way to avoid Nonetype Error involved if the image dictionary is not set
+# Todo: Why do i have a connexion error on an UDP socket, it only happen to the HOST when it disconnect.
+# Todo: Handle bullets in the same way as player, the server nee to keep transfering bullets data to make sure
+# Todo: that the bullet is on the other screen, and avoid udp packet lose
+# Todo: Furthermore, each player object need an argument to deduce the motion of the camera on each sprite
+# Todo: something like : self.camera_motion = [50, 30] and deduce on each sprite coming from the server.
+# Todo: because each sprites are not in the same position on each screen.
 
 class Server:
     """Server UDP socket"""
@@ -18,8 +27,6 @@ class Server:
         self.socket.bind(("", self.port))
         self.clients = {}  # Client name and IP
         self.clients_number = len(self.clients)
-        self.clients_last_call = {}
-        self.socket.setblocking(0)
         self.new_bullet = None
         self.players = {}
         self.bullets = []
@@ -35,63 +42,41 @@ class Server:
 
             self._handle_data(data)
 
-        except BlockingIOError or OSError:  # Todo: find a way to remove those try ( no data and overload buffer)
-            pass
+        except BlockingIOError:  # Useless because method socket.setblocking(0) not used
+
+            print("No data sent")
 
     def send_data(self):
         """Transfer incoming data to all client except to the owner of the sprites"""
 
         for client_info, player_name in self.clients.items():
 
-            data_to_send = [self.players]
+            data_to_send = [self.players.copy()]
             data_to_send[0].pop(player_name)
 
+            if self.new_bullet is not None:
+                if player_name != self.new_bullet.owner:
 
+                    data_to_send.append(self.new_bullet)  # Todo: refer to packet losing in todo above
+
+            data_to_send = pickle.dumps(data_to_send)
 
             self.socket.sendto(data_to_send, client_info)
 
         self.new_bullet = None
 
-    def check_list(self):
-        """ After a time the information of the client are removed, think it's useless as we get it back when
-        he ll be back """
-
-        clients_last_call_dict = self.clients_last_call.copy()
-
-        for client, client_last_call in clients_last_call_dict.items():
-
-            if time.time() - client_last_call > 5.0:
-
-                print("Client {} does not send anymore data".format(client))
-                self.clients.pop(client)
-                self.clients_number -= 1
-                self.clients_last_call.pop(client)
-                print("Client {} data removed\n".format(client))
-
-    def _handle_data(self, data):
+    def handle_data(self, data):
         """input data sent by the client, filter bullet and player, add bullet in a list, call check update
             to watch out if the player move"""
+
         data_loads = pickle.loads(data)
 
-        for type_sprite, sprite in data_loads.items():
+        if data_loads["Bullet"] is not None:
 
-            if isinstance(type_sprite, go.Bullet):
+            self.bullets.append(data_loads["Bullet"])
+            self.new_bullet = data_loads["Bullet"]
 
-                self.new_bullet = sprite
-                self.bullets.append(sprite)
-
-            elif isinstance(type_sprite, go.Player):
-
-                self._check_update(sprite)
-
-    def _check_update(self, player):
-        """input player instance, if player rect on the server in not the same that on the client, update server"""
-
-        player_rect = self.players[player.name].rect
-
-        if player_rect != player.rect:
-
-            self.players[player.name] = player
+        self._check_update(data_loads["Player"])
 
     def save_connexion(self):
 
@@ -99,7 +84,6 @@ class Server:
 
             data, info_client = self.socket.recvfrom(2048)
             self.last_client = info_client
-
             if not (info_client in self.clients.keys()):
 
                 print("{}: First connexion".format(info_client))
@@ -107,11 +91,10 @@ class Server:
                 player = pickle.loads(data)
                 self.clients_number += 1
                 self.clients[info_client] = player.name
-                self.clients_last_call[info_client] = time.time()
                 self.players[player.name] = player
                 print("Client : " + info_client[0] + " successfully added to client list \n")
 
-            if len(self.clients) != 0:
+            if len(self.clients) == 2:
 
                 self.waiting_for_connexion = False
 
@@ -120,12 +103,20 @@ class Server:
 
     def launch_game(self):
 
-        print("LAUNCHING GAME")
+        print("GAME STARTING")
         message = pickle.dumps("launch")
-        for info_client in self.clients.keys():
 
+        for info_client in self.clients.keys():
+            print(info_client)
             self.socket.sendto(message, info_client)
 
+    def _check_update(self, player):
+        """input player instance, if player rect on the server in not the same that on the client, update server"""
+
+        player_rect = self.players[player.name].rect
+
+        if player_rect != player.rect:
+            self.players[player.name] = player
 
 server = Server()
 
@@ -138,6 +129,4 @@ server.launch_game()
 while 1:
 
     server.rcv_data()
-    server.check_list()
     server.send_data()
-

@@ -6,6 +6,7 @@ import game_objects as go
 import client
 import time
 
+
 pg.init()
 pg.display.init()
 pg.key.set_repeat(10, 10)
@@ -17,7 +18,7 @@ class Main:
 
     def __init__(self):
 
-        self.client = client.Client("10.101.2.28")
+        self.client = client.Client("192.168.0.16")
         self.screen = wm.Screen()
         self.player = go.Player()
         self.map = wm.Map(self.player)
@@ -42,9 +43,10 @@ class Main:
         while self.gameOn:
 
             self.dt = self.clock.tick(50) / 1000
-            data_loads = self.client.rcv_data_server()
 
+            data_loads = self.client.rcv_data_server()
             self.map.handle_new_data(data_loads)
+
             self._set_mouse_motion()
 
             self.player.set_attr("tick", self.dt)
@@ -57,8 +59,7 @@ class Main:
             self.camera.check_mouse()
             self.camera.update()
 
-            dict_new_sprites = self.map.add_sprites(self.player)  # Need player instance to check whether the player is shooting
-            data = self._create_data(dict_new_sprites)
+
 
             # Updating / displaying on screen
             self.map.deduce_camera_shift(self.camera)
@@ -68,26 +69,13 @@ class Main:
 
             self.screen.check_input(self.input)
 
-            self.client.send_to_server(data)
+            # send data to server
+            data_to_send = self.map.create_data()
+            self.client.send_to_server(data_to_send)
 
             pg.display.update()
             pg.event.pump()
             self.gameOn = self.screen.window
-
-    def _create_data(self, dict_new_sprites):
-
-        dict = {}
-
-        if self.player.fire:
-
-            dict["Bullets"] = dict_new_sprites["Bullet"]
-
-            self.player.fire = False
-
-        dict["Players"] = dict_new_sprites["Player"]
-
-        return dict
-
 
 server_response = False
 main = Main()
@@ -98,7 +86,7 @@ while not server_response:
     response = main.client.rcv_data_server()
 
     if response == "launch":
-
+        print("receive")
         server_response = True
 
 main.game_loop()

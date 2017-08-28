@@ -12,9 +12,8 @@ class Client:
         self.ip_server = ip_server
         self.port = 12500
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(("10.101.2.28", 5317))
+        self.socket.bind(("", 5317))
         self.socket.setblocking(0)
-
 
     def rcv_data_server(self):
 
@@ -22,8 +21,9 @@ class Client:
             data, info = self.socket.recvfrom(2048)  # we already have the info server
             data = pickle.loads(data)
 
-        except:
+        except BlockingIOError:
 
+            print("No data")
             data = []
 
         return data
@@ -31,8 +31,9 @@ class Client:
     def send_to_server(self, data):
 
         data_dumped = pickle.dumps(data)
-
         self.socket.sendto(data_dumped, (self.ip_server, self.port))
+
+
 
 
 
