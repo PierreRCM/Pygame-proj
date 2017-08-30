@@ -3,13 +3,14 @@ import os
 import pygame as pg
 from pygame.locals import *
 import pandas as pd
+
 # Todo: Rework on weapon_data, maybe the server can initialize random position for weapon in the map and you have to
 # Todo picked it up so the server got the data of the weapons.
 pg.init()
 weapon_data = pd.DataFrame(index=["speed", "range", "damage", "accuracy", "reloading_time", "loader", "rate"],
                            columns=["Gun"])
-weapon_data["Gun"]["speed"] = 400
-weapon_data["Gun"]["range"] = 200
+weapon_data["Gun"]["speed"] = 100
+weapon_data["Gun"]["range"] = 400
 weapon_data["Gun"]["damage"] = 10
 weapon_data["Gun"]["accuracy"] = 10
 weapon_data["Gun"]["reloading_time"] = 1
@@ -20,22 +21,30 @@ image_data_original = {"Player": None, "Bullet": None}
 
 image_data = {"Player": None, "Bullet": None}
 
+def init_image(key_name, image_name):
+
+    image_data_original[key_name] = pg.image.load(os.getcwd() + "\\picture\\" + image_name).convert()
+    image_data[key_name] = pg.image.load(os.getcwd() + "\\picture\\" + image_name).convert()
 
 class Bullet(pg.sprite.Sprite):
 
-    def __init__(self, name, direction, position, range_, damage, speed, tick):
+    i = 0
 
+    def __init__(self, name, direction, position, range_, damage, speed):
+
+        Bullet.i += 1
+        self.code = Bullet.i
         self.owner = name  # Used for collision
         self.image = "Bullet"
-        self._init_image()
         image_data[self.image].set_colorkey((255, 255, 255))
         image_data_original[self.image].set_colorkey((255, 255, 255))
+        self.image_size = image_data[self.image].get_size()
         self.rect = pg.Rect((position[0], position[1]), image_data_original[self.image].get_size())
         # Depend on the weapon characteristics
         self._attr = {"direction": direction - 90, "reference": 270, "init_position": position.copy(),
                       "position": position.copy(), "distance_traveled": 0, "speed": speed,
-                      "damage": damage, "tick": tick,  # todo: set real tick time of the loop
-                      "range": range_, "alive": True, "border": False}
+                      "damage": damage, "range": range_, "alive": True, "border": False}
+
 
         self._rotate()
 
@@ -47,20 +56,22 @@ class Bullet(pg.sprite.Sprite):
            output depend of variable asked"""
         return self._attr[variable]
 
-    def _move(self):
+    def _move(self, dt):
         """move the spell, shift 90° because 0 stand for 90 """
-        self._attr["position"][0] += np.cos((self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * self._attr["tick"]
-        self._attr["position"][1] += np.sin(-(self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * self._attr["tick"]
 
-        self._attr["distance_traveled"] += self._attr["speed"] * self._attr["tick"]
+
+        self._attr["position"][0] += np.cos((self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * dt
+        self._attr["position"][1] += np.sin(-(self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * dt
+
+        self._attr["distance_traveled"] += self._attr["speed"] * dt
         # get distance travelled by the sprite so we can remove when it's superior to the range of the spell
 
-    def update(self):
+    def update(self, dt):
         """First we move the spell then the rectangle"""
 
-        self._move()
+        self._move(dt)
         self.rect = pg.Rect((self._attr["position"][0], self._attr["position"][1]),
-                            image_data_original[self.image].get_size())
+                            self.image_size)
         self._outrange()
         self._outborder()
 
@@ -92,13 +103,6 @@ class Bullet(pg.sprite.Sprite):
 
         self._attr[key] = value
 
-    def _init_image(self):
-
-        global image_data_original, image_data
-
-        image_data_original[self.image] = pg.image.load(os.getcwd() + "\\picture\\bdf.png").convert()
-        image_data[self.image] = pg.image.load(os.getcwd() + "\\picture\\bdf.png").convert()
-
 
 class Weapon:
 
@@ -124,15 +128,14 @@ class Player(pg.sprite.Sprite):
 
     def __init__(self):
 
-        self.name = "Player1"
+        self.name = "xvf"
         self.image = "Player"  # image that ll be blit
-        self._init_image()
         image_data_original[self.image].set_colorkey((255, 255, 255))  # Set image transparence
         self.rect = image_data_original[self.image].get_rect()  # called when updating sprite
         self.weapon = Weapon("Gun")
         self.shortcut = {"up": K_w, "down": K_s, "left": K_a, "right": K_d, "shoot": K_1}
         self.last_shot = pg.time.get_ticks()
-        self._attr = {"reference": 270, "position": [25, 25], "old_position": [10, 10], "speed": 40, "hp": 100,
+        self._attr = {"reference": 270, "position": [25, 25], "old_position": [10, 10], "speed": 60, "hp": 100,
                       "alive": True, "border": False, "mouse": [0, 0], "direction": 0, "tick": 0}
         self.shot_ready = True
         self.fire = False
@@ -202,7 +205,6 @@ class Player(pg.sprite.Sprite):
         if (now - self.last_shot)/1000 >= self.weapon.rate:
 
             self.last_shot = now
-
             self.shot_ready = True
 
         else:
@@ -213,13 +215,11 @@ class Player(pg.sprite.Sprite):
         """return a bullet instance"""
 
         new_bullet = Bullet(self.name, self._attr["direction"], self._attr["position"], self.weapon.range,
-                            self.weapon.damage, self.weapon.speed, self._attr["tick"])  # get_attr method for weapon
+                            self.weapon.damage, self.weapon.speed)  # get_attr method for weapon
 
         return new_bullet
 
     def check_inputs(self):
-
-        self.move = False
 
         vx = 0
         vy = 0
@@ -248,10 +248,4 @@ class Player(pg.sprite.Sprite):
         self._move(vx=vx, vy=vy)
 
 
-    def _init_image(self):
-
-        global image_data_original, image_data
-
-        image_data_original[self.image] = pg.image.load(os.getcwd() + "\\picture\\player.png").convert()
-        image_data[self.image] = pg.image.load(os.getcwd() + "\\picture\\player.png").convert()
 

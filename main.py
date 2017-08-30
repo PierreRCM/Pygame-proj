@@ -18,7 +18,8 @@ class Main:
 
     def __init__(self):
 
-        self.client = client.Client("192.168.0.16")
+
+        self.client = client.Client("192.168.1.100")
         self.screen = wm.Screen()
         self.player = go.Player()
         self.map = wm.Map(self.player)
@@ -60,11 +61,10 @@ class Main:
             self.camera.update()
 
 
-
             # Updating / displaying on screen
             self.map.deduce_camera_shift(self.camera)
             self.map.check_borders(self.camera.get_attr("position"))
-            self.map.update()
+            self.map.update(self.dt)
             self.map.render(self.screen.screen, self.camera.rect)
 
             self.screen.check_input(self.input)
@@ -88,5 +88,6 @@ while not server_response:
     if response == "launch":
         print("receive")
         server_response = True
+
 
 main.game_loop()

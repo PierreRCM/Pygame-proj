@@ -14,6 +14,8 @@ class Map:
         self.players = {player.name: player} # will be set depending on the players who connect to the server
         self.bullets = []
         self.client_player = player
+        self.last_bullet_code = 641646  # Keep a trace of last bullet code because the server keep sending
+                                         # the same bullet while we don't create another bullet
 
     def deduce_camera_shift(self, camera):
         """to avoid the motion effect on sprite of the camera, it deduce the shift of it"""
@@ -32,7 +34,7 @@ class Map:
             y = new_pos_camera[1] - old_pos_camera[1]
             bullet.shift(x, y)
 
-    def update(self):
+    def update(self, dt):
         """Call update method for all sprites"""
         self._check_alive()
 
@@ -42,7 +44,7 @@ class Map:
 
         for bullet in self.bullets:
 
-            bullet.update()
+            bullet.update(dt)
 
     def check_borders(self, screen_position):
         """Check whether player collide with the borders, if it's True, set border arguments"""
@@ -92,16 +94,28 @@ class Map:
 
     def handle_new_data(self, list_sprites):
         """This method add data coming from other clients and add it to our map"""
+
         try:
             for player_name, player_sprite in list_sprites[0].items():
 
                 self.players[player_name] = player_sprite
 
-            self.bullets.append(list_sprites[1])
+            if not self._check_code_bullet(list_sprites[1]) and (list_sprites[1].code != self.last_bullet_code):
 
-        except IndexError:
+                self.bullets.append(list_sprites[1])
+                self.last_bullet_code = list_sprites[1].code
+                print(list_sprites[1].get_attr("position"))
+
+        except IndexError or AttributeError:
             pass
 
+    def _check_code_bullet(self, bullet_sent):
+
+        for bullet in self.bullets:
+            if (bullet.code == bullet_sent.code):
+
+                return True
+        return False
     def create_data(self):
         """input player instance check whether the player create a sprite,
             It return a dictionary of sprite with the new one"""
@@ -111,7 +125,9 @@ class Map:
         if self.client_player.fire and self.client_player.shot_ready:
 
             a_bullet = self.client_player.create_bullet()
+            self.bullets.append(a_bullet)
             new_sprites["Bullet"] = a_bullet
+            self.client_player.fire = False
 
         return new_sprites
 
@@ -208,6 +224,8 @@ class Screen:
                                                                # so we can access to option/exit
                                                                # and handle it with mouse click
         self.window = True
+        go.init_image("Player", "player.png")  # Todo: change the location of the function init_image()
+        go.init_image("Bullet", "bdf.png")
 
     def check_input(self, inputs):
 

@@ -3,8 +3,7 @@ import time
 import pickle
 import os
 import sys
-import game_objects as go
-
+import pygame as pg
 
 print("Looking for your own IP...")
 print("Intranet Protocol: {} \n".format(socket.gethostbyname(socket.gethostname())))
@@ -27,9 +26,9 @@ class Server:
         self.socket.bind(("", self.port))
         self.clients = {}  # Client name and IP
         self.clients_number = len(self.clients)
-        self.new_bullet = None
         self.players = {}
         self.bullets = []
+        self.new_bullet = None
         self.last_client = str()
         self.waiting_for_connexion = True
 
@@ -43,8 +42,7 @@ class Server:
             self._handle_data(data)
 
         except BlockingIOError:  # Useless because method socket.setblocking(0) not used
-
-            print("No data sent")
+            pass
 
     def send_data(self):
         """Transfer incoming data to all client except to the owner of the sprites"""
@@ -63,9 +61,7 @@ class Server:
 
             self.socket.sendto(data_to_send, client_info)
 
-        self.new_bullet = None
-
-    def handle_data(self, data):
+    def _handle_data(self, data):
         """input data sent by the client, filter bullet and player, add bullet in a list, call check update
             to watch out if the player move"""
 
@@ -118,6 +114,19 @@ class Server:
         if player_rect != player.rect:
             self.players[player.name] = player
 
+    def update_bullets(self, dt):
+
+        for bullet in self.bullets:
+            bullet.update(dt)
+
+    def check_alive(self):
+
+        for bullet in self.bullets:
+
+            if not bullet.get_attr("alive"):
+
+                self.bullets.remove(bullet)
+
 server = Server()
 
 while server.waiting_for_connexion:
@@ -126,7 +135,13 @@ while server.waiting_for_connexion:
 
 server.launch_game()
 
+# dt = pg.time.get_ticks()
+
 while 1:
 
+    # dt = pg.time.get_ticks()
     server.rcv_data()
     server.send_data()
+    # server.update_bullets(dt)  # On the server, the screen is not init, so there is no way to work with surface
+    # server.check_alive()
+    # print(len(server.bullets))
