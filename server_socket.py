@@ -36,7 +36,7 @@ class Server:
         """Receive incoming data"""
         try:
 
-            data, info_client = self.socket.recvfrom(2048)
+            data, info_client = self.socket.recvfrom(4096)
             self.last_client = info_client
 
             self._handle_data(data)
@@ -126,6 +126,18 @@ class Server:
             if not bullet.get_attr("alive"):
 
                 self.bullets.remove(bullet)
+    def collision(self):
+        """Test whether each players collide with bullets, deduce hp and kill sprite in case"""
+        if len(self.bullets) != 0:
+            for player in self.players.values():
+                index = player.rect.collidelist(self.bullets)
+                if self.bullets[index].owner is not player.name and index != -1:
+
+                    hp = player.get_attr("hp")
+                    damage = self.bullets[index].get_attr("damage")
+                    player.set_attr("hp", hp - damage)  # Todo: some bug to handle
+                    print(player.get_attr("hp"))
+
 
 server = Server()
 
@@ -135,13 +147,13 @@ while server.waiting_for_connexion:
 
 server.launch_game()
 
-# dt = pg.time.get_ticks()
+clock = pg.time.Clock()
 
 while 1:
 
-    # dt = pg.time.get_ticks()
+    dt = clock.tick() / 1000
     server.rcv_data()
     server.send_data()
-    # server.update_bullets(dt)  # On the server, the screen is not init, so there is no way to work with surface
-    # server.check_alive()
-    # print(len(server.bullets))
+    server.update_bullets(dt)  # On the server, the screen is not init, so there is no way to work with surface
+    server.check_alive()
+    server.collision()

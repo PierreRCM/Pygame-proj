@@ -26,11 +26,12 @@ def init_image(key_name, image_name):
     image_data_original[key_name] = pg.image.load(os.getcwd() + "\\picture\\" + image_name).convert()
     image_data[key_name] = pg.image.load(os.getcwd() + "\\picture\\" + image_name).convert()
 
+
 class Bullet(pg.sprite.Sprite):
 
     i = 0
 
-    def __init__(self, name, direction, position, range_, damage, speed):
+    def __init__(self, name, direction, position, range_, damage, speed, reference):
 
         Bullet.i += 1
         self.code = Bullet.i
@@ -43,8 +44,7 @@ class Bullet(pg.sprite.Sprite):
         # Depend on the weapon characteristics
         self._attr = {"direction": direction - 90, "reference": 270, "init_position": position.copy(),
                       "position": position.copy(), "distance_traveled": 0, "speed": speed,
-                      "damage": damage, "range": range_, "alive": True, "border": False}
-
+                      "damage": damage, "range": range_, "alive": True, "border": False, "position_reference": reference}
 
         self._rotate()
 
@@ -59,9 +59,10 @@ class Bullet(pg.sprite.Sprite):
     def _move(self, dt):
         """move the spell, shift 90° because 0 stand for 90 """
 
-
         self._attr["position"][0] += np.cos((self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * dt
         self._attr["position"][1] += np.sin(-(self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * dt
+        self._attr["position_reference"][0] += np.cos((self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * dt
+        self._attr["position_reference"][1] += np.sin(-(self._attr["direction"] + 90) * np.pi / 180) * self._attr["speed"] * dt
 
         self._attr["distance_traveled"] += self._attr["speed"] * dt
         # get distance travelled by the sprite so we can remove when it's superior to the range of the spell
@@ -103,7 +104,6 @@ class Bullet(pg.sprite.Sprite):
 
         self._attr[key] = value
 
-
 class Weapon:
 
     def __init__(self, name):
@@ -123,12 +123,11 @@ class Weapon:
 
         return weapon_data[self.name][key]
 
-
 class Player(pg.sprite.Sprite):
 
     def __init__(self):
 
-        self.name = "xvf"
+        self.name = "qsqd"
         self.image = "Player"  # image that ll be blit
         image_data_original[self.image].set_colorkey((255, 255, 255))  # Set image transparence
         self.rect = image_data_original[self.image].get_rect()  # called when updating sprite
@@ -136,8 +135,9 @@ class Player(pg.sprite.Sprite):
         self.shortcut = {"up": K_w, "down": K_s, "left": K_a, "right": K_d, "shoot": K_1}
         self.last_shot = pg.time.get_ticks()
         self._attr = {"reference": 270, "position": [25, 25], "old_position": [10, 10], "speed": 60, "hp": 100,
-                      "alive": True, "border": False, "mouse": [0, 0], "direction": 0, "tick": 0}
-        self.shot_ready = True
+                      "alive": True, "border": False, "mouse": [0, 0], "direction": 0, "tick": 0,
+                      "position_reference": [0, 0]}  # Position reference will be use to facilitate collision handling
+        self.shot_ready = True                       # on server in does not depend of the camera position
         self.fire = False
 
         self.keys = pg.key.get_pressed()
@@ -156,7 +156,8 @@ class Player(pg.sprite.Sprite):
             self._attr["old_position"] = self._attr["position"].copy()
             self._attr["position"][0] += (vx*self._attr["tick"])
             self._attr["position"][1] += (vy*self._attr["tick"])
-
+            self._attr["position_reference"][0] += (vx*self._attr["tick"])
+            self._attr["position_reference"][1] += (vy*self._attr["tick"])
         else:
 
             self._attr["position"] = self._attr["old_position"].copy()
@@ -215,7 +216,7 @@ class Player(pg.sprite.Sprite):
         """return a bullet instance"""
 
         new_bullet = Bullet(self.name, self._attr["direction"], self._attr["position"], self.weapon.range,
-                            self.weapon.damage, self.weapon.speed)  # get_attr method for weapon
+                            self.weapon.damage, self.weapon.speed, self._attr["position_reference"])  # get_attr method for weapon
 
         return new_bullet
 
@@ -246,6 +247,5 @@ class Player(pg.sprite.Sprite):
             self._cooldown_shot()
 
         self._move(vx=vx, vy=vy)
-
 
 

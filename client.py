@@ -12,13 +12,13 @@ class Client:
         self.ip_server = ip_server
         self.port = 12500
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(("", 5348))
+        self.socket.bind(("", 5337))
         self.socket.setblocking(0)
 
     def rcv_data_server(self):
 
         try:
-            data, info = self.socket.recvfrom(2048)  # we already have the info server
+            data, info = self.socket.recvfrom(4096)  # we already have the info server
             data = pickle.loads(data)
 
         except BlockingIOError:

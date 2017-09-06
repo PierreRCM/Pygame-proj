@@ -131,18 +131,6 @@ class Map:
 
         return new_sprites
 
-    # def collision(self):
-    #     """Test whether each players collide with bullets, deduce hp and kill sprite in case"""
-    #
-    #     for player in self.groupe_dict["Players"]:
-    #         for bullet in self.groupe_dict["Bullets"]:
-    #             if (player.name is not bullet.owner) and (player.rect.colliderect(bullet)):
-    #
-    #                 new_hp = player.get_attr("hp") - bullet.get_attr("damage")
-    #                 player.set_attr("hp", new_hp)
-    #                 bullet.set_attr("alive", False)
-
-
 class Camera:
 
     def __init__(self, screen_size, map_size):

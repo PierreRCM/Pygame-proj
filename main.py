@@ -19,7 +19,7 @@ class Main:
     def __init__(self):
 
 
-        self.client = client.Client("192.168.1.100")
+        self.client = client.Client("127.0.0.1")
         self.screen = wm.Screen()
         self.player = go.Player()
         self.map = wm.Map(self.player)
